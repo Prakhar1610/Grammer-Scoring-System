@@ -1,0 +1,29 @@
+# Core Python
+numpy
+pandas
+
+# Visualization
+matplotlib
+seaborn
+
+# Audio Processing
+librosa
+soundfile
+
+# Machine Learning
+scikit-learn
+xgboost
+
+# Speech-to-Text (ASR)
+torch
+openai-whisper
+
+# Grammar Analysis
+language-tool-python
+
+# Web Application
+flask
+
+# Utilities
+tqdm
+joblib

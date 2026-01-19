@@ -27,3 +27,14 @@ flask
 # Utilities
 tqdm
 joblib
+
+
+flask
+werkzeug
+numpy
+pandas
+scikit-learn
+scipy
+librosa
+soundfile
+joblib

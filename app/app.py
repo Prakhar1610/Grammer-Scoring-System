@@ -1,10 +1,11 @@
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template   # ✅ added render_template
 from werkzeug.utils import secure_filename
 
 from src.inference import GrammarScorer
 
-ALLOWED_EXT = {".wav", ".mp3", ".m4a", ".flac", ".ogg"}  # wav recommended
+# ✅ allow browser recordings too (.webm is common)
+ALLOWED_EXT = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".webm"}
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_DIR = os.path.join(BASE_DIR, "app", "uploads")
@@ -15,7 +16,17 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 scorer = GrammarScorer(MODEL_PATH, COLS_PATH)
 
-app = Flask(__name__)
+# ✅ tell flask where templates/static are (safe even if you run as module)
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, "app", "templates"),
+    static_folder=os.path.join(BASE_DIR, "app", "static")
+)
+
+# ✅ serve frontend page
+@app.get("/")
+def home():
+    return render_template("index.html")
 
 @app.get("/health")
 def health():

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Grammar Scoring Engine</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <h1>Grammar Scoring Engine</h1>
+    <p class="sub">Record your voice (45–60 sec recommended), then get a grammar score (0–5).</p>
+
+    <div class="card">
+      <div class="row">
+        <button id="btnStart" class="btn primary">Start Recording</button>
+        <button id="btnStop" class="btn" disabled>Stop</button>
+        <button id="btnPredict" class="btn success" disabled>Predict Score</button>
+      </div>
+
+      <div class="row">
+        <audio id="player" controls></audio>
+      </div>
+
+      <div class="row status">
+        <span id="statusText">Status: idle</span>
+        <span id="timerText">00:00</span>
+      </div>
+
+      <hr/>
+
+      <div class="result">
+        <div class="label">Predicted Score</div>
+        <div id="scoreBox" class="score">—</div>
+        <div id="scoreNote" class="note"></div>
+      </div>
+
+      <div class="row">
+        <details>
+          <summary>Debug (optional)</summary>
+          <pre id="debugBox">{}</pre>
+        </details>
+      </div>
+    </div>
+
+    <p class="footer">
+      Tip: Speak naturally. Avoid background noise. WAV recordings work best.
+    </p>
+  </div>
+
+  <script>
+    // If backend runs on same host/port, keep as "/predict"
+    // If you later separate frontend/backend, change this to "http://127.0.0.1:5000/predict"
+    window.PREDICT_URL = "/predict";
+  </script>
+  <script src="{{ url_for('static', filename='js/recorder.js') }}"></script>
+</body>
+</html>

@@ -35,6 +35,36 @@
         <div id="scoreNote" class="note"></div>
       </div>
 
+      <!-- Transcript -->
+      <hr/>
+      <div class="result">
+        <div class="label">What you said (Transcript)</div>
+        <div id="transcriptBox" class="note">(waiting...)</div>
+        <div id="asrMeta" class="note"></div>
+      </div>
+
+      <!-- Abusive word detection -->
+      <hr/>
+      <div class="result">
+        <div class="label">Abusive / Unsafe words</div>
+        <div id="abuseBox" class="note">—</div>
+      </div>
+
+      <!-- Corrected text -->
+      <hr/>
+      <div class="result">
+        <div class="label">Corrected Text</div>
+        <div id="correctedBox" class="note">—</div>
+      </div>
+
+      <!-- Listen to corrected speech -->
+      <hr/>
+      <div class="result">
+        <div class="label">Listen (Corrected Voice)</div>
+        <audio id="ttsPlayer" controls></audio>
+        <div id="ttsMeta" class="note"></div>
+      </div>
+
       <div class="row">
         <details>
           <summary>Debug (optional)</summary>

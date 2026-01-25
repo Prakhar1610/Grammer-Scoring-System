@@ -17,6 +17,8 @@ xgboost
 # Speech-to-Text (ASR)
 torch
 openai-whisper
+openai>=1.0.0
+python-dotenv
 
 # Grammar Analysis
 language-tool-python
@@ -31,10 +33,9 @@ joblib
 
 flask
 werkzeug
-numpy
-pandas
-scikit-learn
 scipy
 librosa
 soundfile
-joblib
+
+
+

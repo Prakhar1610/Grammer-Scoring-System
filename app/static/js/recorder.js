@@ -14,6 +14,10 @@ const scoreBox = document.getElementById("scoreBox");
 const scoreNote = document.getElementById("scoreNote");
 const debugBox = document.getElementById("debugBox");
 
+// Transcript UI refs
+const transcriptBox = document.getElementById("transcriptBox");
+const asrMeta = document.getElementById("asrMeta");
+
 function setStatus(msg) {
   statusText.textContent = "Status: " + msg;
 }
@@ -39,9 +43,15 @@ function stopTimer() {
 }
 
 async function startRecording() {
+  // Reset UI
   scoreBox.textContent = "—";
   scoreNote.textContent = "";
   debugBox.textContent = "{}";
+
+  // reset transcript area
+  transcriptBox.textContent = "(waiting...)";
+  asrMeta.textContent = "";
+
   recordedBlob = null;
   chunks = [];
 
@@ -57,7 +67,7 @@ async function startRecording() {
   mediaRecorder.onstop = () => {
     stopTimer();
 
-    // Use the recorder's mimeType (often webm/ogg). We'll convert server-side if needed later.
+    // Use recorder mimeType (often webm/ogg)
     recordedBlob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
 
     const url = URL.createObjectURL(recordedBlob);
@@ -95,8 +105,8 @@ async function predictScore() {
   btnPredict.disabled = true;
 
   const fd = new FormData();
-  // Use a filename with extension. Backend currently allows wav/mp3/m4a/flac/ogg.
-  // Many browsers produce webm; if backend rejects it, we'll adjust backend in next step.
+
+  // Use a filename with extension. Browser recordings are often webm/ogg.
   const filename = (recordedBlob.type.includes("ogg")) ? "recording.ogg" : "recording.webm";
   fd.append("audio", recordedBlob, filename);
 
@@ -108,6 +118,14 @@ async function predictScore() {
 
     const data = await res.json();
     debugBox.textContent = JSON.stringify(data, null, 2);
+
+    // show transcript + ASR mode if backend returns them
+    transcriptBox.textContent = data.transcript
+      ? data.transcript
+      : "(no transcript returned)";
+    asrMeta.textContent = data.asr_mode
+      ? `ASR mode: ${data.asr_mode}`
+      : "";
 
     if (!data.ok) {
       setStatus("error");

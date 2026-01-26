@@ -4,3 +4,8 @@ env/
 app/uploads/
 
 models/vosk/
+
+__pycache__/
+*.pyc
+
+.ipynb_checkpoints/

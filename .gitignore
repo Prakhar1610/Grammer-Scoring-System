@@ -1,11 +1,27 @@
+# Virtual environments
 env/
-.env
+.venv/
 
+# Audio data & uploads
+data/raw/
+data/processed/
 app/uploads/
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.ogg
+*.webm
 
+# ASR models (very large)
 models/vosk/
 
+# Python cache
 __pycache__/
 *.pyc
 
+# Notebooks
 .ipynb_checkpoints/
+
+# Secrets
+.env

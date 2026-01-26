@@ -4,7 +4,7 @@ import wave
 from vosk import Model, KaldiRecognizer
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-VOSK_MODEL_PATH = os.path.join(BASE_DIR, "models", "vosk", "vosk-model-small-en-us-0.15")
+VOSK_MODEL_PATH = os.path.join(BASE_DIR, "models", "vosk", "vosk-model-en-in-0.5")
 
 _model = None
 

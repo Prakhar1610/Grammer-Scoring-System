@@ -115,9 +115,14 @@ def predict():
     wav_path = save_path
     try:
         # Convert to wav if not already wav
-        if ext != ".wav":
-            wav_path = os.path.splitext(save_path)[0] + ".wav"
-            convert_to_wav(save_path, wav_path)
+        # if ext != ".wav":
+        #     wav_path = os.path.splitext(save_path)[0] + ".wav"
+        #     convert_to_wav(save_path, wav_path)
+
+        # Always convert to 16kHz mono WAV (Vosk requires this)
+        wav_path = os.path.splitext(save_path)[0] + "_16k.wav"
+        convert_to_wav(save_path, wav_path)
+
 
         # 1) Score
         result = scorer.predict_file(wav_path)

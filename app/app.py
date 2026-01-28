@@ -8,6 +8,15 @@ from dotenv import load_dotenv
 from src.inference import GrammarScorer
 from src.asr.router import transcribe
 
+# from src.grammar.correct import correct_grammar
+
+from src.grammar_correction.languagetool_client import correct_with_languagetool
+
+
+from src.nlp.punctuate import ensure_sentence_end
+from src.nlp.grammar import correct_with_languagetool
+
+
 # ----------------------------
 # Paths / Config
 # ----------------------------
@@ -131,6 +140,48 @@ def predict():
         asr = transcribe(wav_path)
         result["transcript"] = asr.get("text", "") or ""
         result["asr_mode"] = asr.get("mode_used") or "none"
+
+
+        result["transcript"] = result["transcript"].replace(" i ", " I ")
+
+
+        # 3) Grammar correction (punctuate -> LanguageTool)
+        raw = result["transcript"]
+
+        # Step 1: Light punctuation + capitalization
+        formatted = ensure_sentence_end(raw)
+
+        # Step 2: Grammar correction using LanguageTool
+        gc = correct_with_languagetool(formatted, language="en-US")
+
+        result["corrected_text"] = gc["corrected"]
+        result["grammar_matches"] = gc["matches"] 
+        result["grammar_mode"] = gc["mode_used"]
+
+        
+        # # Running LanguageTool on punctuated text
+        # gc = correct_with_languagetool(punct, language="en-US")
+
+        # # Store results
+        # result["corrected_text"] = gc["corrected"]
+        # result["grammar_matches"] = gc["matches"]
+        # result["grammar_mode"] = gc["mode_used"]
+
+        #corrected, matches = correct_with_languagetool(result["transcript"], language="en-US")
+
+        # Basic formatting: capitalization + punctuation
+        #corrected = basic_punctuate(corrected)
+
+        # result["corrected_text"] = corrected
+        # result["grammar_matches"] = matches
+        # result["grammar_mode"] = "languagetool"
+        # gc = correct_grammar(result["transcript"])
+        # result["corrected_text"] = gc.get("corrected", "")
+        # result["grammar_mode"] = gc.get("mode_used", "none")
+        # result["grammar_matches"] = gc.get("matches", [])
+
+        # if not gc.get("ok", False):
+        #     result["grammar_error"] = gc.get("error")
 
         if not asr.get("ok", False):
             result["asr_error"] = asr.get("error") or "ASR failed"

@@ -18,6 +18,9 @@ const debugBox = document.getElementById("debugBox");
 const transcriptBox = document.getElementById("transcriptBox");
 const asrMeta = document.getElementById("asrMeta");
 
+// Corrected Transcript (already present in your file ✅)
+const correctedBox = document.getElementById("correctedBox");
+
 function setStatus(msg) {
   statusText.textContent = "Status: " + msg;
 }
@@ -51,6 +54,9 @@ async function startRecording() {
   // reset transcript area
   transcriptBox.textContent = "(waiting...)";
   asrMeta.textContent = "";
+
+  // ✅ reset corrected text box
+  correctedBox.textContent = "—";
 
   recordedBlob = null;
   chunks = [];
@@ -118,6 +124,12 @@ async function predictScore() {
 
     const data = await res.json();
     debugBox.textContent = JSON.stringify(data, null, 2);
+
+    // ✅ ✨ Corrected text
+    correctedBox.textContent = data.corrected_text ? data.corrected_text : "—";
+    if (data.grammar_matches && data.grammar_matches.length) {
+      correctedBox.textContent += `\n\n(Detected issues: ${data.grammar_matches.length})`;
+    }
 
     // show transcript + ASR mode if backend returns them
     transcriptBox.textContent = data.transcript

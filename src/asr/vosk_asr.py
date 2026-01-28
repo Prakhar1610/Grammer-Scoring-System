@@ -1,6 +1,4 @@
-import os
-import json
-import wave
+import os, json, wave
 from vosk import Model, KaldiRecognizer
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -19,6 +17,7 @@ def transcribe_vosk(wav_path: str) -> str:
 
     wf = wave.open(wav_path, "rb")
 
+    # Vosk requirements
     if wf.getnchannels() != 1:
         raise RuntimeError("Audio must be mono WAV")
     if wf.getsampwidth() != 2:
@@ -26,20 +25,28 @@ def transcribe_vosk(wav_path: str) -> str:
     if wf.getframerate() != 16000:
         raise RuntimeError("Audio must be 16kHz WAV")
 
-    rec = KaldiRecognizer(_model, wf.getframerate())
+    rec = KaldiRecognizer(_model, 16000)
     rec.SetWords(True)
 
-    text_chunks = []
+    text_parts = []
 
     while True:
-        data = wf.readframes(4000)
+        data = wf.readframes(8000)
         if len(data) == 0:
             break
+
         if rec.AcceptWaveform(data):
             part = json.loads(rec.Result())
-            text_chunks.append(part.get("text", ""))
+            if part.get("text"):
+                text_parts.append(part["text"])
 
     final = json.loads(rec.FinalResult())
-    text_chunks.append(final.get("text", ""))
+    if final.get("text"):
+        text_parts.append(final["text"])
 
-    return " ".join(text_chunks).strip()
+    wf.close()  # ✅ Improvement B: close file
+
+    text = " ".join(text_parts).strip()
+    text = text.replace(" i ", " I ")  # ✅ Improvement A: fix lowercase i
+
+    return text

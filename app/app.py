@@ -1,20 +1,17 @@
 import os
 import subprocess
-from flask import Flask, request, jsonify, render_template
-from werkzeug.utils import secure_filename
+import uuid
+import pyttsx3
 
+from flask import Flask, request, jsonify, render_template, send_file
+from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
 from src.inference import GrammarScorer
 from src.asr.router import transcribe
 
-# from src.grammar.correct import correct_grammar
-
-from src.grammar_correction.languagetool_client import correct_with_languagetool
-
-
-from src.nlp.punctuate import ensure_sentence_end
 from src.nlp.grammar import correct_with_languagetool
+from src.nlp.punctuate import ensure_sentence_end
 
 
 # ----------------------------
@@ -31,10 +28,14 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 ALLOWED_EXT = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".webm"}
 
 UPLOAD_DIR = os.path.join(BASE_DIR, "app", "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# TTS output folder
+TTS_DIR = os.path.join(BASE_DIR, "app", "tts")
+os.makedirs(TTS_DIR, exist_ok=True)
+
 MODEL_PATH = os.path.join(BASE_DIR, "models", "ridge_model.pkl")
 COLS_PATH  = os.path.join(BASE_DIR, "models", "feature_cols.json")
-
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 scorer = GrammarScorer(MODEL_PATH, COLS_PATH)
 
@@ -46,13 +47,11 @@ app = Flask(
 )
 
 # Prefer ffmpeg in PATH; fallback to hard-coded path if you want
-# If you already added ffmpeg to PATH, you can set this to "ffmpeg"
 FFMPEG_PATH = os.getenv("FFMPEG_PATH", r"D:\ffmpeg\ffmpeg-8.0.1-essentials_build\bin\ffmpeg.exe")
 
 
 def ffmpeg_exists() -> bool:
     """True if ffmpeg command is runnable."""
-    # If user set FFMPEG_PATH=ffmpeg, this should work too
     if FFMPEG_PATH.lower() == "ffmpeg":
         return True
     return os.path.exists(FFMPEG_PATH)
@@ -79,7 +78,6 @@ def convert_to_wav(input_path: str, output_path: str):
         output_path
     ]
 
-    # capture stderr for debugging
     proc = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
 
     if proc.returncode != 0:
@@ -123,15 +121,9 @@ def predict():
 
     wav_path = save_path
     try:
-        # Convert to wav if not already wav
-        # if ext != ".wav":
-        #     wav_path = os.path.splitext(save_path)[0] + ".wav"
-        #     convert_to_wav(save_path, wav_path)
-
         # Always convert to 16kHz mono WAV (Vosk requires this)
         wav_path = os.path.splitext(save_path)[0] + "_16k.wav"
         convert_to_wav(save_path, wav_path)
-
 
         # 1) Score
         result = scorer.predict_file(wav_path)
@@ -141,47 +133,17 @@ def predict():
         result["transcript"] = asr.get("text", "") or ""
         result["asr_mode"] = asr.get("mode_used") or "none"
 
-
+        # Small cleanup
         result["transcript"] = result["transcript"].replace(" i ", " I ")
 
-
-        # 3) Grammar correction (punctuate -> LanguageTool)
+        # 3) Grammar correction
         raw = result["transcript"]
-
-        # Step 1: Light punctuation + capitalization
-        formatted = ensure_sentence_end(raw)
-
-        # Step 2: Grammar correction using LanguageTool
+        formatted = ensure_sentence_end(raw)  # light formatting
         gc = correct_with_languagetool(formatted, language="en-US")
 
         result["corrected_text"] = gc["corrected"]
-        result["grammar_matches"] = gc["matches"] 
+        result["grammar_matches"] = gc["matches"]
         result["grammar_mode"] = gc["mode_used"]
-
-        
-        # # Running LanguageTool on punctuated text
-        # gc = correct_with_languagetool(punct, language="en-US")
-
-        # # Store results
-        # result["corrected_text"] = gc["corrected"]
-        # result["grammar_matches"] = gc["matches"]
-        # result["grammar_mode"] = gc["mode_used"]
-
-        #corrected, matches = correct_with_languagetool(result["transcript"], language="en-US")
-
-        # Basic formatting: capitalization + punctuation
-        #corrected = basic_punctuate(corrected)
-
-        # result["corrected_text"] = corrected
-        # result["grammar_matches"] = matches
-        # result["grammar_mode"] = "languagetool"
-        # gc = correct_grammar(result["transcript"])
-        # result["corrected_text"] = gc.get("corrected", "")
-        # result["grammar_mode"] = gc.get("mode_used", "none")
-        # result["grammar_matches"] = gc.get("matches", [])
-
-        # if not gc.get("ok", False):
-        #     result["grammar_error"] = gc.get("error")
 
         if not asr.get("ok", False):
             result["asr_error"] = asr.get("error") or "ASR failed"
@@ -195,7 +157,6 @@ def predict():
         return jsonify({"ok": False, "error": str(e)}), 400
 
     finally:
-        # cleanup uploaded + converted file
         try:
             if os.path.exists(save_path):
                 os.remove(save_path)
@@ -203,6 +164,28 @@ def predict():
                 os.remove(wav_path)
         except Exception:
             pass
+
+
+# NEW: TTS route
+@app.post("/tts")
+def tts():
+    data = request.get_json(silent=True) or {}
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"ok": False, "error": "No text provided"}), 400
+
+    out_name = f"tts_{uuid.uuid4().hex}.wav"
+    out_path = os.path.join(TTS_DIR, out_name)
+
+    engine = pyttsx3.init()
+    engine.setProperty("rate", 170)
+    engine.save_to_file(text, out_path)
+    engine.runAndWait()
+
+    if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
+        return jsonify({"ok": False, "error": "TTS generation failed"}), 500
+
+    return send_file(out_path, mimetype="audio/wav", as_attachment=False)
 
 
 if __name__ == "__main__":

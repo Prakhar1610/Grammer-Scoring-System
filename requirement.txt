@@ -38,4 +38,6 @@ librosa
 soundfile
 
 
+pyttsx3
+
 

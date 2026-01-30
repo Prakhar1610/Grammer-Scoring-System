@@ -15,8 +15,20 @@
       <div class="row">
         <button id="btnStart" class="btn primary">Start Recording</button>
         <button id="btnStop" class="btn" disabled>Stop</button>
+        <button id="btnReset" class="btn" type="button">Reset</button>
         <button id="btnPredict" class="btn success" disabled>Predict Score</button>
       </div>
+
+      <!-- Upload audio -->
+      <div class="row">
+        <input id="fileInput" type="file" accept="audio/*" class="file" />
+        <button id="btnClearFile" class="btn" disabled>Clear File</button>
+      </div>
+
+    <div class="row note">
+      <small>Upload an audio file (wav/mp3/m4a/flac/ogg/webm). If you upload, recording is optional.</small>
+    </div>
+
 
       <div class="row">
         <audio id="player" controls></audio>

@@ -45,3 +45,11 @@ hr { border: none; border-top: 1px solid #223052; margin: 14px 0; }
 details { width: 100%; }
 summary { cursor: pointer; color: #b9c4dd; }
 pre { background: #0b1220; padding: 12px; border-radius: 10px; overflow: auto; }
+
+.file {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+}
+

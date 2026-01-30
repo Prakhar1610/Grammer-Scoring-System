@@ -1,43 +1,37 @@
-let mediaRecorder = null;
+let mediaRecorder;
 let chunks = [];
 let recordedBlob = null;
 let timerInterval = null;
 let startTime = null;
 
-// --------------------
-// DOM refs
-// --------------------
+// --- Buttons / UI ---
 const btnStart = document.getElementById("btnStart");
 const btnStop = document.getElementById("btnStop");
 const btnPredict = document.getElementById("btnPredict");
+const btnReset = document.getElementById("btnReset");        // ✅ Reset button
 
 const player = document.getElementById("player");
 const statusText = document.getElementById("statusText");
 const timerText = document.getElementById("timerText");
-
 const scoreBox = document.getElementById("scoreBox");
 const scoreNote = document.getElementById("scoreNote");
 const debugBox = document.getElementById("debugBox");
 
+// Transcript UI refs
 const transcriptBox = document.getElementById("transcriptBox");
 const asrMeta = document.getElementById("asrMeta");
 
+// Corrected text UI
 const correctedBox = document.getElementById("correctedBox");
 
+// TTS UI refs
 const btnTts = document.getElementById("btnTts");
 const ttsPlayer = document.getElementById("ttsPlayer");
 
-console.log("DOM check:", {
-  btnStart, btnStop, btnPredict,
-  player, statusText, timerText,
-  scoreBox, scoreNote, debugBox,
-  transcriptBox, asrMeta, correctedBox,
-  btnTts, ttsPlayer
-});
+// Upload UI refs
+const fileInput = document.getElementById("fileInput");
+const btnClearFile = document.getElementById("btnClearFile");
 
-// --------------------
-// Helpers
-// --------------------
 function setStatus(msg) {
   if (statusText) statusText.textContent = "Status: " + msg;
 }
@@ -62,45 +56,106 @@ function stopTimer() {
   timerInterval = null;
 }
 
-// Reset UI for new recording session
-function resetUiForNewRecording() {
+// -----------------------
+// Helpers
+// -----------------------
+function resetOutputs() {
   if (scoreBox) scoreBox.textContent = "—";
   if (scoreNote) scoreNote.textContent = "";
   if (debugBox) debugBox.textContent = "{}";
-
   if (transcriptBox) transcriptBox.textContent = "(waiting...)";
   if (asrMeta) asrMeta.textContent = "";
-
   if (correctedBox) correctedBox.textContent = "—";
-
   if (btnTts) btnTts.disabled = true;
   if (ttsPlayer) ttsPlayer.src = "";
-
-  if (btnPredict) btnPredict.disabled = true;
 }
 
-// --------------------
+function setPredictEnabled(enabled) {
+  if (btnPredict) btnPredict.disabled = !enabled;
+}
+
+function isUsingUpload() {
+  return fileInput && fileInput.files && fileInput.files.length > 0;
+}
+
+function updateModeUI() {
+  const usingUpload = isUsingUpload();
+
+  if (btnClearFile) btnClearFile.disabled = !usingUpload;
+
+  // Disable recording when file selected (avoid confusion)
+  if (btnStart) btnStart.disabled = usingUpload;
+  if (btnStop) btnStop.disabled = true; // only enabled during actual recording
+
+  // Predict enabled if either we have a file or a recorded blob
+  const canPredict = usingUpload || !!recordedBlob;
+  setPredictEnabled(canPredict);
+}
+
+// -----------------------
+// Reset (Record + Upload + Outputs)
+// -----------------------
+function resetAll() {
+  try {
+    // Stop recording safely
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+    }
+    if (mediaRecorder && mediaRecorder.stream) {
+      mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    }
+  } catch (e) {
+    console.warn("Recorder already stopped");
+  }
+
+  stopTimer();
+
+  // Clear audio data
+  chunks = [];
+  recordedBlob = null;
+
+  // Clear upload
+  if (fileInput) fileInput.value = "";
+
+  // Clear players
+  if (player) player.src = "";
+  if (ttsPlayer) ttsPlayer.src = "";
+
+  // Reset text outputs
+  if (scoreBox) scoreBox.textContent = "—";
+  if (scoreNote) scoreNote.textContent = "";
+  if (debugBox) debugBox.textContent = "{}";
+  if (transcriptBox) transcriptBox.textContent = "(waiting...)";
+  if (asrMeta) asrMeta.textContent = "";
+  if (correctedBox) correctedBox.textContent = "—";
+
+  // Reset buttons
+  if (btnStart) btnStart.disabled = false;
+  if (btnStop) btnStop.disabled = true;
+  if (btnPredict) btnPredict.disabled = true;
+  if (btnTts) btnTts.disabled = true;
+  if (btnClearFile) btnClearFile.disabled = true;
+
+  setStatus("idle");
+  updateModeUI();
+}
+
+// -----------------------
 // Recording
-// --------------------
+// -----------------------
 async function startRecording() {
   try {
-    console.log("startRecording clicked");
-    resetUiForNewRecording();
+    resetOutputs();
 
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      throw new Error("getUserMedia not supported. Use latest Chrome.");
-    }
-    if (!window.MediaRecorder) {
-      throw new Error("MediaRecorder not supported. Use latest Chrome.");
-    }
+    recordedBlob = null;
+    chunks = [];
 
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    console.log("Mic permission granted ✅");
 
-    chunks = [];
-    recordedBlob = null;
+    if (!window.MediaRecorder) {
+      throw new Error("MediaRecorder not supported in this browser. Use Chrome.");
+    }
 
-    // Let browser pick format; usually "audio/webm"
     mediaRecorder = new MediaRecorder(stream);
 
     mediaRecorder.ondataavailable = (e) => {
@@ -110,22 +165,18 @@ async function startRecording() {
     mediaRecorder.onerror = (e) => {
       console.error("MediaRecorder error:", e);
       setStatus("error");
-      if (scoreNote) scoreNote.textContent = "Recorder error. Re-allow mic and retry.";
+      if (scoreNote) scoreNote.textContent = "MediaRecorder error. Try Chrome / allow mic.";
     };
 
     mediaRecorder.onstop = () => {
       stopTimer();
 
-      recordedBlob = new Blob(chunks, {
-        type: mediaRecorder.mimeType || "audio/webm"
-      });
-      console.log("Recorded blob size:", recordedBlob.size, "type:", recordedBlob.type);
-
+      recordedBlob = new Blob(chunks, { type: mediaRecorder.mimeType || "audio/webm" });
       const url = URL.createObjectURL(recordedBlob);
       if (player) player.src = url;
 
-      if (btnPredict) btnPredict.disabled = false;
       setStatus("recorded (ready to predict)");
+      updateModeUI();
     };
 
     mediaRecorder.start();
@@ -134,61 +185,56 @@ async function startRecording() {
 
     if (btnStart) btnStart.disabled = true;
     if (btnStop) btnStop.disabled = false;
-    if (btnPredict) btnPredict.disabled = true;
+    setPredictEnabled(false);
 
   } catch (err) {
     console.error("startRecording failed:", err);
     setStatus("error");
     if (scoreNote) scoreNote.textContent = err.message || "Mic permission / browser issue";
+    updateModeUI();
   }
 }
 
 function stopRecording() {
   try {
-    console.log("stopRecording clicked");
+    if (!mediaRecorder) return;
 
-    if (!mediaRecorder) {
-      setStatus("idle");
-      return;
-    }
-
-    // stop only if recording
-    if (mediaRecorder.state === "recording") {
-      mediaRecorder.stop();
-    }
-
-    // stop mic tracks
-    if (mediaRecorder.stream) {
-      mediaRecorder.stream.getTracks().forEach(t => t.stop());
-    }
+    mediaRecorder.stop();
+    mediaRecorder.stream.getTracks().forEach(t => t.stop());
 
     if (btnStart) btnStart.disabled = false;
     if (btnStop) btnStop.disabled = true;
-
     setStatus("processing recording...");
   } catch (e) {
-    console.error("stopRecording failed:", e);
-    setStatus("error");
-    if (scoreNote) scoreNote.textContent = e.message || "Stop failed";
+    console.error("stopRecording error:", e);
   }
 }
 
-// --------------------
+// -----------------------
 // Predict
-// --------------------
+// -----------------------
 async function predictScore() {
-  if (!recordedBlob) {
-    setStatus("idle");
-    if (scoreNote) scoreNote.textContent = "Record audio first.";
-    return;
-  }
-
+  resetOutputs();
   setStatus("uploading & predicting...");
-  if (btnPredict) btnPredict.disabled = true;
+  setPredictEnabled(false);
 
   const fd = new FormData();
-  const filename = recordedBlob.type.includes("ogg") ? "recording.ogg" : "recording.webm";
-  fd.append("audio", recordedBlob, filename);
+
+  // 1) If user uploaded a file, use it
+  if (isUsingUpload()) {
+    const file = fileInput.files[0];
+    fd.append("audio", file, file.name);
+  }
+  // 2) Else use recorded blob
+  else if (recordedBlob) {
+    const filename = (recordedBlob.type.includes("ogg")) ? "recording.ogg" : "recording.webm";
+    fd.append("audio", recordedBlob, filename);
+  } else {
+    setStatus("idle");
+    if (scoreNote) scoreNote.textContent = "No audio found. Record or upload a file.";
+    updateModeUI();
+    return;
+  }
 
   try {
     const res = await fetch(window.PREDICT_URL || "/predict", {
@@ -199,29 +245,31 @@ async function predictScore() {
     const data = await res.json().catch(() => ({}));
     if (debugBox) debugBox.textContent = JSON.stringify(data, null, 2);
 
-    // Show transcript & corrected even if score fails
-    if (transcriptBox) transcriptBox.textContent = data.transcript || "(no transcript returned)";
+    if (!data.ok) {
+      setStatus("error");
+      if (scoreNote) scoreNote.textContent = data.error || "Prediction failed";
+      updateModeUI();
+      return;
+    }
+
+    // Transcript
+    if (transcriptBox) transcriptBox.textContent = data.transcript ? data.transcript : "(no transcript returned)";
     if (asrMeta) asrMeta.textContent = data.asr_mode ? `ASR mode: ${data.asr_mode}` : "";
 
+    // Corrected
     if (correctedBox) {
-      correctedBox.textContent = data.corrected_text || "—";
+      correctedBox.textContent = data.corrected_text ? data.corrected_text : "—";
       if (data.grammar_matches && data.grammar_matches.length) {
         correctedBox.textContent += `\n\n(Detected issues: ${data.grammar_matches.length})`;
       }
     }
 
+    // Enable TTS if corrected text exists
     if (btnTts) btnTts.disabled = !data.corrected_text;
 
-    if (!data.ok) {
-      setStatus("error");
-      if (scoreBox) scoreBox.textContent = "—";
-      if (scoreNote) scoreNote.textContent = data.error || "Prediction failed";
-      if (btnPredict) btnPredict.disabled = false;
-      return;
-    }
-
+    // Score
     const score = Number(data.score);
-    if (scoreBox) scoreBox.textContent = isFinite(score) ? score.toFixed(2) : "—";
+    if (scoreBox) scoreBox.textContent = Number.isFinite(score) ? score.toFixed(2) : "—";
 
     if (scoreNote) {
       if (score < 2) scoreNote.textContent = "Needs improvement: grammar/fluency likely weak.";
@@ -231,18 +279,19 @@ async function predictScore() {
     }
 
     setStatus("done ✅");
+    updateModeUI();
 
   } catch (err) {
-    console.error("predictScore failed:", err);
+    console.error(err);
     setStatus("error");
     if (scoreNote) scoreNote.textContent = "Network/server error. Check backend running.";
-    if (btnPredict) btnPredict.disabled = false;
+    updateModeUI();
   }
 }
 
-// --------------------
+// -----------------------
 // TTS
-// --------------------
+// -----------------------
 async function playTts() {
   const text = correctedBox ? correctedBox.textContent.trim() : "";
   if (!text || text === "—") return;
@@ -264,16 +313,11 @@ async function playTts() {
 
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
+    if (ttsPlayer) ttsPlayer.src = url;
+    if (ttsPlayer) await ttsPlayer.play();
 
-    if (ttsPlayer) {
-      ttsPlayer.src = url;
-      await ttsPlayer.play();
-    }
-
-    setStatus("done");
-
+    setStatus("done ✅");
   } catch (e) {
-    console.error("playTts failed:", e);
     setStatus("error");
     if (scoreNote) scoreNote.textContent = e.message;
   } finally {
@@ -281,8 +325,48 @@ async function playTts() {
   }
 }
 
+// -----------------------
+// Upload handlers
+// -----------------------
+function onFileSelected() {
+  resetOutputs();
 
+  // Clear recorded blob when a file is chosen (avoid confusion)
+  recordedBlob = null;
+  chunks = [];
+
+  // Preview uploaded file in the player
+  if (player && isUsingUpload()) {
+    const file = fileInput.files[0];
+    const url = URL.createObjectURL(file);
+    player.src = url;
+  }
+
+  setStatus("file selected (ready to predict)");
+  updateModeUI();
+}
+
+function clearFile() {
+  if (!fileInput) return;
+  fileInput.value = "";
+
+  if (player) player.src = "";
+  setStatus("idle");
+
+  updateModeUI();
+}
+
+// -----------------------
+// Listeners
+// -----------------------
 if (btnStart) btnStart.addEventListener("click", startRecording);
 if (btnStop) btnStop.addEventListener("click", stopRecording);
 if (btnPredict) btnPredict.addEventListener("click", predictScore);
 if (btnTts) btnTts.addEventListener("click", playTts);
+
+if (fileInput) fileInput.addEventListener("change", onFileSelected);
+if (btnClearFile) btnClearFile.addEventListener("click", clearFile);
+if (btnReset) btnReset.addEventListener("click", resetAll);
+
+// Initial state
+updateModeUI();

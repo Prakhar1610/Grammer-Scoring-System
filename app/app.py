@@ -13,6 +13,8 @@ from src.asr.router import transcribe
 from src.nlp.grammar import correct_with_languagetool
 from src.nlp.punctuate import ensure_sentence_end
 
+from src.nlp.punctuate_rules import punctuate_rules
+
 
 # ----------------------------
 # Paths / Config
@@ -138,12 +140,18 @@ def predict():
 
         # 3) Grammar correction
         raw = result["transcript"]
-        formatted = ensure_sentence_end(raw)  # light formatting
-        gc = correct_with_languagetool(formatted, language="en-US")
+        formatted = punctuate_rules(raw)
 
+        gc = correct_with_languagetool(formatted, language="en-US")
         result["corrected_text"] = gc["corrected"]
         result["grammar_matches"] = gc["matches"]
         result["grammar_mode"] = gc["mode_used"]
+        # formatted = ensure_sentence_end(raw)  # light formatting
+        # gc = correct_with_languagetool(formatted, language="en-US")
+
+        # result["corrected_text"] = gc["corrected"]
+        # result["grammar_matches"] = gc["matches"]
+        # result["grammar_mode"] = gc["mode_used"]
 
         if not asr.get("ok", False):
             result["asr_error"] = asr.get("error") or "ASR failed"
